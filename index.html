@@ -273,6 +273,8 @@
         // 노선 데이터 로드
         const ROUTES_URL = 'https://raw.githubusercontent.com/krc-global/test/main/routes.geojson';
 
+        let routeItems = [];
+
         fetch(ROUTES_URL)
             .then(res => res.json())
             .then(routeData => {
@@ -285,14 +287,29 @@
                         };
                     },
                     onEachFeature: function(feature, layer) {
-                        const props = feature.properties;
-                        const popupContent = `<b>${props.FAC_NAME || '노선'}</b><br>` +
-                            (props.DISTRIC_01 ? `위치: ${props.DISTRIC_01}<br>` : '') +
-                            (props.OWNER_TYPE ? `소유: ${props.OWNER_TYPE}<br>` : '') +
-                            (props.CHECK_DATE ? `점검일: ${props.CHECK_DATE}` : '');
-                        layer.bindPopup(popupContent);
+                        layer.on('click', function() {
+                            const idx = routeData.features.indexOf(feature);
+                            if (idx >= 0 && routeItems) {
+                                selectRoute(routeItems[idx], false);
+                            }
+                        });
                     }
                 }).addTo(map);
+
+                // 클릭 히트 영역 (투명한 넓은 선)
+                routeData.features.forEach(function(feature, idx) {
+                    const coords = feature.geometry.type === 'LineString'
+                        ? feature.geometry.coordinates
+                        : feature.geometry.coordinates[0];
+                    const latLngs = coords.map(c => L.latLng(c[1], c[0]));
+                    L.polyline(latLngs, {
+                        weight: 20,
+                        opacity: 0,
+                        interactive: true
+                    }).on('click', function() {
+                        if (routeItems.length > 0) selectRoute(routeItems[idx], false);
+                    }).addTo(map);
+                });
 
                 // 각 노선에 데코레이터(화살표, 시작점) 및 라벨 추가
                 routeData.features.forEach(function(feature) {
@@ -395,7 +412,7 @@
                 }
 
                 // 노선 데이터 배열 구성
-                const routeItems = routeData.features.map(function(f, idx) {
+                routeItems = routeData.features.map(function(f, idx) {
                     const len = getRouteLength(f);
                     const bbox = getBBox(f);
                     const coords = f.geometry.type === 'LineString'
@@ -427,7 +444,8 @@
                     });
                 }
 
-                function selectRoute(item) {
+                function selectRoute(item, doZoom) {
+                    if (doZoom === undefined) doZoom = true;
                     selectedIdx = item.index;
                     const props = item.feature.properties;
                     const name = props.FAC_NAME || '노선';
@@ -437,19 +455,18 @@
 
                     // 제원 표시
                     let html = '<div class="route-info-title">' + name + '</div>';
-                    html += '<div class="route-info-row"><span class="route-info-label">연장</span><span class="route-info-value">' + formatLength(item.length) + '</span></div>';
-                    html += '<div class="route-info-row"><span class="route-info-label">폭(E-W)</span><span class="route-info-value">' + formatLength(item.bbox.width) + '</span></div>';
-                    html += '<div class="route-info-row"><span class="route-info-label">높이(N-S)</span><span class="route-info-value">' + formatLength(item.bbox.height) + '</span></div>';
-                    html += '<div class="route-info-row"><span class="route-info-label">꼭짓점수</span><span class="route-info-value">' + item.coords.length + '개</span></div>';
                     if (props.FAC_CODE) html += '<div class="route-info-row"><span class="route-info-label">시설코드</span><span class="route-info-value">' + props.FAC_CODE + '</span></div>';
+                    html += '<div class="route-info-row"><span class="route-info-label">연장</span><span class="route-info-value">' + formatLength(item.length) + '</span></div>';
                     if (props.DISTRIC_01) html += '<div class="route-info-row"><span class="route-info-label">위치</span><span class="route-info-value">' + props.DISTRIC_01 + '</span></div>';
 
                     routeInfoEl.innerHTML = html;
                     routeInfoEl.classList.add('visible');
 
                     // 지도 이동
-                    const latLngs = item.coords.map(c => [c[1], c[0]]);
-                    map.fitBounds(L.latLngBounds(latLngs), { padding: [50, 50] });
+                    if (doZoom) {
+                        const latLngs = item.coords.map(c => [c[1], c[0]]);
+                        map.fitBounds(L.latLngBounds(latLngs), { padding: [50, 50] });
+                    }
 
                     // 해당 노선 하이라이트
                     routeLayer.eachLayer(function(layer) {
