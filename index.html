@@ -126,7 +126,6 @@
     <div class="loading" id="loading">지도 데이터를 불러오는 중...</div>
 
     <script>
-        // Google Maps 스타일 타일 레이어 (Google 위성/지도 대신 유사한 스타일 사용)
         const map = L.map('map', {
             center: [36.0, 127.8],
             zoom: 7,
@@ -139,55 +138,33 @@
             maxZoom: 20
         }).addTo(map);
 
-        // 시도별 색상
-        const COLORS = {
-            '서울특별시': '#FF6B6B',
-            '부산광역시': '#4ECDC4',
-            '대구광역시': '#45B7D1',
-            '인천광역시': '#96CEB4',
-            '광주광역시': '#FFEAA7',
-            '대전광역시': '#DDA0DD',
-            '울산광역시': '#98D8C8',
-            '세종특별자치시': '#F7DC6F',
-            '경기도': '#82B1FF',
-            '강원도': '#A5D6A7',
-            '충청북도': '#FFAB91',
-            '충청남도': '#CE93D8',
-            '전라북도': '#80DEEA',
-            '전라남도': '#FFE082',
-            '경상북도': '#EF9A9A',
-            '경상남도': '#A5D6A7',
-            '제주특별자치도': '#FFCC80'
-        };
-
         // 2018년 이후 변경된 이름 매핑
         const NAME_MAP = {
             '전라북도': '전북특별자치도',
             '강원도': '강원특별자치도'
         };
 
-        function getColor(name) {
-            return COLORS[name] || '#B0BEC5';
-        }
-
+        // 시도경계 스타일: 얇은 경계선 + 회색 투명 음영
         function style(feature) {
             return {
-                fillColor: getColor(feature.properties.name),
-                weight: 2.5,
-                opacity: 1,
-                color: '#ffffff',
-                fillOpacity: 0.55
+                fillColor: '#999999',
+                weight: 1,
+                opacity: 0.8,
+                color: '#666666',
+                fillOpacity: 0.15
             };
         }
 
         function highlightFeature(e) {
             const layer = e.target;
             layer.setStyle({
-                weight: 3.5,
+                weight: 2,
                 color: '#1a73e8',
-                fillOpacity: 0.75
+                fillOpacity: 0.3
             });
             layer.bringToFront();
+            // 노선 레이어를 항상 최상단에
+            if (routeLayer) routeLayer.bringToFront();
 
             const props = layer.feature.properties;
             const displayName = NAME_MAP[props.name] || props.name;
@@ -221,8 +198,19 @@
         }
 
         let geojsonLayer;
+        let routeLayer;
 
-        // TopoJSON 데이터 로드
+        // 노선 색상 팔레트
+        const ROUTE_COLORS = [
+            '#e6194b', '#3cb44b', '#4363d8', '#f58231', '#911eb4',
+            '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990',
+            '#dcbeff', '#9A6324', '#800000', '#aaffc3', '#808000',
+            '#000075', '#a9a9a9', '#e6beff', '#ffe119', '#ff6961',
+            '#77dd77', '#6b5b95', '#feb236', '#d64161', '#ff7b25',
+            '#87ceeb', '#daa520', '#2e8b57'
+        ];
+
+        // TopoJSON 데이터 로드 (시도경계)
         const TOPO_URL = 'https://raw.githubusercontent.com/southkorea/southkorea-maps/master/kostat/2013/json/skorea_provinces_topo_simple.json';
 
         fetch(TOPO_URL)
@@ -244,7 +232,7 @@
                         const displayName = NAME_MAP[name] || name;
                         const item = document.createElement('div');
                         item.className = 'legend-item';
-                        item.innerHTML = `<div class="legend-color" style="background:${getColor(name)}"></div><span>${displayName}</span>`;
+                        item.innerHTML = `<div class="legend-color" style="background:#999999; opacity:0.4"></div><span>${displayName}</span>`;
                         item.addEventListener('click', () => {
                             geojsonLayer.eachLayer(layer => {
                                 if (layer.feature.properties.name === name) {
@@ -257,11 +245,70 @@
 
                 map.fitBounds(geojsonLayer.getBounds(), { padding: [20, 20] });
                 document.getElementById('loading').classList.add('hidden');
+
+                // 노선 데이터 로드
+                loadRoutes();
             })
             .catch(err => {
                 document.getElementById('loading').textContent = '데이터를 불러오지 못했습니다: ' + err.message;
                 console.error(err);
             });
+
+        function loadRoutes() {
+            const ROUTES_URL = 'https://raw.githubusercontent.com/krc-global/test/main/routes.geojson';
+
+            fetch(ROUTES_URL)
+                .then(res => res.json())
+                .then(routeData => {
+                    routeLayer = L.geoJSON(routeData, {
+                        style: function(feature, idx) {
+                            const i = routeData.features.indexOf(feature);
+                            return {
+                                color: ROUTE_COLORS[i % ROUTE_COLORS.length],
+                                weight: 3,
+                                opacity: 0.9
+                            };
+                        },
+                        onEachFeature: function(feature, layer) {
+                            const props = feature.properties;
+                            const popupContent = `<b>${props.FAC_NAME || '노선'}</b><br>` +
+                                (props.DISTRIC_01 ? `위치: ${props.DISTRIC_01}<br>` : '') +
+                                (props.OWNER_TYPE ? `소유: ${props.OWNER_TYPE}<br>` : '') +
+                                (props.CHECK_DATE ? `점검일: ${props.CHECK_DATE}` : '');
+                            layer.bindPopup(popupContent);
+                            layer.bindTooltip(props.FAC_NAME || '노선', {
+                                permanent: false,
+                                direction: 'top',
+                                offset: [0, -5]
+                            });
+                        }
+                    }).addTo(map);
+
+                    // 노선 범례 추가
+                    const legendEl = document.getElementById('legend');
+                    const separator = document.createElement('div');
+                    separator.innerHTML = '<hr style="margin:8px 0; border:none; border-top:1px solid #ddd;"><h4 style="margin-bottom:6px;">개보수 용수로 노선</h4>';
+                    legendEl.appendChild(separator);
+
+                    routeData.features.forEach((f, i) => {
+                        const item = document.createElement('div');
+                        item.className = 'legend-item';
+                        item.innerHTML = `<div class="legend-color" style="background:${ROUTE_COLORS[i % ROUTE_COLORS.length]}; height:4px; border-radius:2px; margin-top:6px;"></div><span style="font-size:11px;">${f.properties.FAC_NAME || '노선'}</span>`;
+                        item.addEventListener('click', () => {
+                            routeLayer.eachLayer(layer => {
+                                if (layer.feature === f) {
+                                    map.fitBounds(layer.getBounds(), { padding: [50, 50] });
+                                    layer.openPopup();
+                                }
+                            });
+                        });
+                        legendEl.appendChild(item);
+                    });
+                })
+                .catch(err => {
+                    console.error('노선 데이터 로드 실패:', err);
+                });
+        }
     </script>
 </body>
 </html>
