@@ -3,60 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>대한민국 시도경계 지도</title>
+    <title>함평 대동지구 수리시설개보수사업 위치도</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/topojson-client@3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; }
         #map { width: 100%; height: 100vh; }
 
-        .info-panel {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            z-index: 1000;
-            background: white;
-            padding: 16px 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.2);
-            min-width: 200px;
-        }
-        .info-panel h3 {
-            font-size: 14px;
-            color: #333;
-            margin-bottom: 8px;
-        }
-        .info-panel .province-name {
-            font-size: 22px;
-            font-weight: 700;
-            color: #1a73e8;
-        }
-        .info-panel .province-eng {
-            font-size: 13px;
-            color: #888;
-            margin-top: 2px;
-        }
-
         .title-panel {
             position: absolute;
             top: 15px;
-            left: 55px;
+            left: 50%;
+            transform: translateX(-50%);
             z-index: 1000;
             background: white;
-            padding: 12px 18px;
+            padding: 12px 24px;
             border-radius: 10px;
             box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+            border: 2px solid #000;
+            white-space: nowrap;
         }
         .title-panel h1 {
-            font-size: 16px;
+            font-size: 20px;
+            font-weight: 700;
             color: #333;
         }
 
-        .legend {
+        .route-panel {
             position: absolute;
-            bottom: 25px;
+            top: 15px;
             right: 15px;
             z-index: 1000;
             background: white;
@@ -64,30 +41,122 @@
             border-radius: 10px;
             box-shadow: 0 2px 12px rgba(0,0,0,0.2);
             font-size: 12px;
-            max-height: 320px;
-            overflow-y: auto;
+            width: 280px;
         }
-        .legend h4 {
-            margin-bottom: 8px;
+        .route-panel h4 {
+            margin-bottom: 10px;
             color: #333;
-        }
-        .legend-item {
             display: flex;
             align-items: center;
-            margin-bottom: 4px;
-            cursor: pointer;
-            padding: 2px 4px;
-            border-radius: 4px;
-            transition: background 0.15s;
+            gap: 6px;
         }
-        .legend-item:hover { background: #f0f0f0; }
-        .legend-color {
-            width: 16px;
-            height: 16px;
-            border-radius: 3px;
-            margin-right: 8px;
-            flex-shrink: 0;
-            border: 1px solid rgba(0,0,0,0.15);
+        .route-panel h4::before {
+            content: '';
+            display: inline-block;
+            width: 20px; height: 3px;
+            background: #2196F3;
+            border-radius: 1px;
+        }
+
+        /* 검색 드롭다운 */
+        .route-dropdown {
+            position: relative;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .route-search {
+            width: 100%;
+            padding: 8px 30px 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 12px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .route-search:focus { border-color: #2196F3; }
+        .route-search-icon {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #aaa;
+            font-size: 13px;
+            pointer-events: none;
+        }
+        .route-list {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            max-height: 200px;
+            overflow-y: auto;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+        .route-list.open { display: block; }
+        .route-list-item {
+            padding: 7px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            border-bottom: 1px solid #f5f5f5;
+            transition: background 0.1s;
+        }
+        .route-list-item:hover { background: #e3f2fd; }
+        .route-list-item.selected { background: #bbdefb; font-weight: 600; }
+        .route-list-item:last-child { border-bottom: none; }
+
+        /* 범례 심볼 */
+        .legend-symbols {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 6px 0 10px;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 10px;
+        }
+        .legend-sym {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            color: #666;
+        }
+
+        /* 제원 정보 */
+        .route-info {
+            display: none;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+        .route-info.visible { display: block; }
+        .route-info-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #1565C0;
+            margin-bottom: 8px;
+        }
+        .route-info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .route-info-row:last-child { border-bottom: none; }
+        .route-info-label {
+            color: #666;
+            font-weight: 500;
+        }
+        .route-info-value {
+            color: #333;
+            font-weight: 600;
         }
 
         .loading {
@@ -104,211 +173,318 @@
             color: #333;
         }
         .loading.hidden { display: none; }
+
+        /* 노선 라벨 스타일 - 깔끔하게 */
+        .route-label {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            font-size: 11px;
+            font-weight: 600;
+            color: #1565C0;
+            white-space: nowrap;
+            text-shadow: 1px 1px 2px white, -1px -1px 2px white, 1px -1px 2px white, -1px 1px 2px white;
+        }
+        .route-label::before {
+            display: none;
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
 
     <div class="title-panel">
-        <h1>대한민국 시도경계</h1>
+        <h1>함평 대동지구 수리시설개보수사업 위치도</h1>
     </div>
 
-    <div class="info-panel" id="infoPanel">
-        <h3>시/도 정보</h3>
-        <div class="province-name" id="provinceName">지역을 선택하세요</div>
-        <div class="province-eng" id="provinceEng"></div>
+    <div class="route-panel" id="routePanel">
+        <h4>개보수 용수로</h4>
+        <div class="legend-symbols">
+            <div class="legend-sym">
+                <div style="width:6px; height:6px; border-radius:50%; background:#2196F3;"></div>
+                시작점
+            </div>
+            <div class="legend-sym">
+                <div style="width:20px; height:3px; background:#2196F3; border-radius:1px;"></div>
+                노선
+            </div>
+            <div class="legend-sym">
+                <div style="width:0; height:0; border-left:5px solid #2196F3; border-top:3px solid transparent; border-bottom:3px solid transparent;"></div>
+                흐름방향
+            </div>
+        </div>
+        <div class="route-dropdown">
+            <input type="text" class="route-search" id="routeSearch" placeholder="노선 검색..." autocomplete="off">
+            <span class="route-search-icon">&#x1F50D;</span>
+            <div class="route-list" id="routeList"></div>
+        </div>
+        <div class="route-info" id="routeInfo"></div>
     </div>
 
-    <div class="legend" id="legend">
-        <h4>시도 범례</h4>
-    </div>
-
-    <div class="loading" id="loading">지도 데이터를 불러오는 중...</div>
+    <div class="loading" id="loading">노선 데이터를 불러오는 중...</div>
 
     <script>
         const map = L.map('map', {
-            center: [36.0, 127.8],
-            zoom: 7,
+            center: [35.09, 126.51],
+            zoom: 14,
             zoomControl: true
         });
 
-        // Google Maps 타일 사용
         L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
             attribution: 'Map data &copy; Google',
             maxZoom: 20
         }).addTo(map);
 
-        // 2018년 이후 변경된 이름 매핑
-        const NAME_MAP = {
-            '전라북도': '전북특별자치도',
-            '강원도': '강원특별자치도'
-        };
+        // 폴리라인의 중간 지점과 해당 위치의 각도 계산
+        function getMidpointAndAngle(coords) {
+            if (coords.length < 2) return { point: coords[0], angle: 0 };
 
-        // 시도경계 스타일: 얇은 경계선 + 회색 투명 음영
-        function style(feature) {
-            return {
-                fillColor: '#999999',
-                weight: 1,
-                opacity: 0.8,
-                color: '#666666',
-                fillOpacity: 0.15
-            };
+            // 전체 거리 계산
+            let totalDist = 0;
+            const segDists = [];
+            for (let i = 1; i < coords.length; i++) {
+                const d = Math.sqrt(
+                    Math.pow(coords[i][0] - coords[i-1][0], 2) +
+                    Math.pow(coords[i][1] - coords[i-1][1], 2)
+                );
+                segDists.push(d);
+                totalDist += d;
+            }
+
+            // 중간 거리 지점 찾기
+            const halfDist = totalDist / 2;
+            let accumulated = 0;
+            for (let i = 0; i < segDists.length; i++) {
+                if (accumulated + segDists[i] >= halfDist) {
+                    const ratio = (halfDist - accumulated) / segDists[i];
+                    const lng = coords[i][0] + ratio * (coords[i+1][0] - coords[i][0]);
+                    const lat = coords[i][1] + ratio * (coords[i+1][1] - coords[i][1]);
+                    const angle = Math.atan2(
+                        coords[i+1][1] - coords[i][1],
+                        coords[i+1][0] - coords[i][0]
+                    ) * 180 / Math.PI;
+                    return { point: [lng, lat], angle: angle };
+                }
+                accumulated += segDists[i];
+            }
+            return { point: coords[Math.floor(coords.length/2)], angle: 0 };
         }
 
-        function highlightFeature(e) {
-            const layer = e.target;
-            layer.setStyle({
-                weight: 2,
-                color: '#1a73e8',
-                fillOpacity: 0.3
-            });
-            layer.bringToFront();
-            // 노선 레이어를 항상 최상단에
-            if (routeLayer) routeLayer.bringToFront();
+        // 노선 데이터 로드
+        const ROUTES_URL = 'https://raw.githubusercontent.com/krc-global/test/main/routes.geojson';
 
-            const props = layer.feature.properties;
-            const displayName = NAME_MAP[props.name] || props.name;
-            document.getElementById('provinceName').textContent = displayName;
-            document.getElementById('provinceEng').textContent = props.name_eng || '';
-        }
-
-        function resetHighlight(e) {
-            geojsonLayer.resetStyle(e.target);
-            document.getElementById('provinceName').textContent = '지역을 선택하세요';
-            document.getElementById('provinceEng').textContent = '';
-        }
-
-        function zoomToFeature(e) {
-            map.fitBounds(e.target.getBounds(), { padding: [30, 30] });
-        }
-
-        function onEachFeature(feature, layer) {
-            layer.on({
-                mouseover: highlightFeature,
-                mouseout: resetHighlight,
-                click: zoomToFeature
-            });
-
-            const displayName = NAME_MAP[feature.properties.name] || feature.properties.name;
-            layer.bindTooltip(displayName, {
-                permanent: false,
-                direction: 'center',
-                className: 'province-tooltip'
-            });
-        }
-
-        let geojsonLayer;
-        let routeLayer;
-
-        // 노선 색상 팔레트
-        const ROUTE_COLORS = [
-            '#e6194b', '#3cb44b', '#4363d8', '#f58231', '#911eb4',
-            '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990',
-            '#dcbeff', '#9A6324', '#800000', '#aaffc3', '#808000',
-            '#000075', '#a9a9a9', '#e6beff', '#ffe119', '#ff6961',
-            '#77dd77', '#6b5b95', '#feb236', '#d64161', '#ff7b25',
-            '#87ceeb', '#daa520', '#2e8b57'
-        ];
-
-        // TopoJSON 데이터 로드 (시도경계)
-        const TOPO_URL = 'https://raw.githubusercontent.com/southkorea/southkorea-maps/master/kostat/2013/json/skorea_provinces_topo_simple.json';
-
-        fetch(TOPO_URL)
+        fetch(ROUTES_URL)
             .then(res => res.json())
-            .then(topoData => {
-                const geoData = topojson.feature(topoData, topoData.objects['skorea_provinces_geo']);
-
-                geojsonLayer = L.geoJSON(geoData, {
-                    style: style,
-                    onEachFeature: onEachFeature
+            .then(routeData => {
+                const routeLayer = L.geoJSON(routeData, {
+                    style: function() {
+                        return {
+                            color: '#2196F3',
+                            weight: 3,
+                            opacity: 0.9
+                        };
+                    },
+                    onEachFeature: function(feature, layer) {
+                        const props = feature.properties;
+                        const popupContent = `<b>${props.FAC_NAME || '노선'}</b><br>` +
+                            (props.DISTRIC_01 ? `위치: ${props.DISTRIC_01}<br>` : '') +
+                            (props.OWNER_TYPE ? `소유: ${props.OWNER_TYPE}<br>` : '') +
+                            (props.CHECK_DATE ? `점검일: ${props.CHECK_DATE}` : '');
+                        layer.bindPopup(popupContent);
+                    }
                 }).addTo(map);
 
-                // 범례 생성
-                const legendEl = document.getElementById('legend');
-                geoData.features
-                    .sort((a, b) => a.properties.code - b.properties.code)
-                    .forEach(f => {
-                        const name = f.properties.name;
-                        const displayName = NAME_MAP[name] || name;
-                        const item = document.createElement('div');
-                        item.className = 'legend-item';
-                        item.innerHTML = `<div class="legend-color" style="background:#999999; opacity:0.4"></div><span>${displayName}</span>`;
-                        item.addEventListener('click', () => {
-                            geojsonLayer.eachLayer(layer => {
-                                if (layer.feature.properties.name === name) {
-                                    map.fitBounds(layer.getBounds(), { padding: [30, 30] });
-                                }
-                            });
-                        });
-                        legendEl.appendChild(item);
-                    });
+                // 각 노선에 데코레이터(화살표, 시작점) 및 라벨 추가
+                routeData.features.forEach(function(feature) {
+                    const coords = feature.geometry.type === 'LineString'
+                        ? feature.geometry.coordinates
+                        : feature.geometry.coordinates[0]; // MultiLineString: 첫 번째 라인
 
-                map.fitBounds(geojsonLayer.getBounds(), { padding: [20, 20] });
-                document.getElementById('loading').classList.add('hidden');
+                    // Leaflet 좌표로 변환 [lat, lng]
+                    const latLngs = coords.map(c => L.latLng(c[1], c[0]));
 
-                // 노선 데이터 로드
-                loadRoutes();
-            })
-            .catch(err => {
-                document.getElementById('loading').textContent = '데이터를 불러오지 못했습니다: ' + err.message;
-                console.error(err);
-            });
-
-        function loadRoutes() {
-            const ROUTES_URL = 'https://raw.githubusercontent.com/krc-global/test/main/routes.geojson';
-
-            fetch(ROUTES_URL)
-                .then(res => res.json())
-                .then(routeData => {
-                    routeLayer = L.geoJSON(routeData, {
-                        style: function(feature, idx) {
-                            const i = routeData.features.indexOf(feature);
-                            return {
-                                color: ROUTE_COLORS[i % ROUTE_COLORS.length],
-                                weight: 3,
-                                opacity: 0.9
-                            };
-                        },
-                        onEachFeature: function(feature, layer) {
-                            const props = feature.properties;
-                            const popupContent = `<b>${props.FAC_NAME || '노선'}</b><br>` +
-                                (props.DISTRIC_01 ? `위치: ${props.DISTRIC_01}<br>` : '') +
-                                (props.OWNER_TYPE ? `소유: ${props.OWNER_TYPE}<br>` : '') +
-                                (props.CHECK_DATE ? `점검일: ${props.CHECK_DATE}` : '');
-                            layer.bindPopup(popupContent);
-                            layer.bindTooltip(props.FAC_NAME || '노선', {
-                                permanent: false,
-                                direction: 'top',
-                                offset: [0, -5]
-                            });
-                        }
+                    // 시작점: 파란색 원
+                    L.circleMarker(latLngs[0], {
+                        radius: 3,
+                        fillColor: '#2196F3',
+                        color: '#2196F3',
+                        weight: 0,
+                        fillOpacity: 1
                     }).addTo(map);
 
-                    // 노선 범례 추가
-                    const legendEl = document.getElementById('legend');
-                    const separator = document.createElement('div');
-                    separator.innerHTML = '<hr style="margin:8px 0; border:none; border-top:1px solid #ddd;"><h4 style="margin-bottom:6px;">개보수 용수로 노선</h4>';
-                    legendEl.appendChild(separator);
+                    // 끝부분: 화살표 데코레이터
+                    const polyline = L.polyline(latLngs, { opacity: 0 });
+                    L.polylineDecorator(polyline, {
+                        patterns: [
+                            {
+                                offset: '100%',
+                                repeat: 0,
+                                symbol: L.Symbol.arrowHead({
+                                    pixelSize: 8,
+                                    polygon: true,
+                                    pathOptions: {
+                                        fillColor: '#2196F3',
+                                        color: '#2196F3',
+                                        weight: 0,
+                                        fillOpacity: 1
+                                    }
+                                })
+                            }
+                        ]
+                    }).addTo(map);
 
-                    routeData.features.forEach((f, i) => {
-                        const item = document.createElement('div');
-                        item.className = 'legend-item';
-                        item.innerHTML = `<div class="legend-color" style="background:${ROUTE_COLORS[i % ROUTE_COLORS.length]}; height:4px; border-radius:2px; margin-top:6px;"></div><span style="font-size:11px;">${f.properties.FAC_NAME || '노선'}</span>`;
-                        item.addEventListener('click', () => {
-                            routeLayer.eachLayer(layer => {
-                                if (layer.feature === f) {
-                                    map.fitBounds(layer.getBounds(), { padding: [50, 50] });
-                                    layer.openPopup();
-                                }
-                            });
-                        });
-                        legendEl.appendChild(item);
-                    });
-                })
-                .catch(err => {
-                    console.error('노선 데이터 로드 실패:', err);
+                    // 라벨: 노선 중간점 위에 배치
+                    const mid = getMidpointAndAngle(coords);
+                    const labelLatLng = L.latLng(mid.point[1], mid.point[0]);
+                    const name = feature.properties.FAC_NAME || '';
+
+                    if (name) {
+                        // 각도 보정: 텍스트가 뒤집히지 않도록 -90~90 범위로
+                        let angle = -mid.angle; // CSS rotate는 시계방향이므로 부호 반전
+                        if (angle > 90) angle -= 180;
+                        if (angle < -90) angle += 180;
+
+                        L.marker(labelLatLng, {
+                            icon: L.divIcon({
+                                className: 'route-label',
+                                html: `<div style="transform: rotate(${angle}deg); transform-origin: center center; padding-bottom: 10px;">${name}</div>`,
+                                iconSize: [0, 0],
+                                iconAnchor: [0, 0]
+                            }),
+                            interactive: false,
+                            zIndexOffset: 1000
+                        }).addTo(map);
+                    }
                 });
-        }
+
+                // Haversine 거리 계산 (미터)
+                function haversine(c1, c2) {
+                    const R = 6371000;
+                    const toRad = x => x * Math.PI / 180;
+                    const dLat = toRad(c2[1] - c1[1]);
+                    const dLon = toRad(c2[0] - c1[0]);
+                    const a = Math.sin(dLat/2)**2 + Math.cos(toRad(c1[1])) * Math.cos(toRad(c2[1])) * Math.sin(dLon/2)**2;
+                    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                }
+
+                function getRouteLength(feature) {
+                    const coords = feature.geometry.type === 'LineString'
+                        ? feature.geometry.coordinates
+                        : feature.geometry.coordinates[0];
+                    let len = 0;
+                    for (let i = 1; i < coords.length; i++) {
+                        len += haversine(coords[i-1], coords[i]);
+                    }
+                    return len;
+                }
+
+                function getBBox(feature) {
+                    const coords = feature.geometry.type === 'LineString'
+                        ? feature.geometry.coordinates
+                        : feature.geometry.coordinates[0];
+                    const lngs = coords.map(c => c[0]);
+                    const lats = coords.map(c => c[1]);
+                    return {
+                        width: haversine([Math.min(...lngs), lats[0]], [Math.max(...lngs), lats[0]]),
+                        height: haversine([lngs[0], Math.min(...lats)], [lngs[0], Math.max(...lats)])
+                    };
+                }
+
+                function formatLength(m) {
+                    return m >= 1000 ? (m/1000).toFixed(2) + ' km' : Math.round(m) + ' m';
+                }
+
+                // 노선 데이터 배열 구성
+                const routeItems = routeData.features.map(function(f, idx) {
+                    const len = getRouteLength(f);
+                    const bbox = getBBox(f);
+                    const coords = f.geometry.type === 'LineString'
+                        ? f.geometry.coordinates
+                        : f.geometry.coordinates[0];
+                    return { feature: f, index: idx, length: len, bbox: bbox, coords: coords };
+                });
+
+                // 드롭다운 목록 생성
+                const routeListEl = document.getElementById('routeList');
+                const routeSearchEl = document.getElementById('routeSearch');
+                const routeInfoEl = document.getElementById('routeInfo');
+                let selectedIdx = -1;
+
+                function renderRouteList(filter) {
+                    routeListEl.innerHTML = '';
+                    const keyword = (filter || '').toLowerCase();
+                    routeItems.forEach(function(item) {
+                        const name = item.feature.properties.FAC_NAME || '노선';
+                        if (keyword && name.toLowerCase().indexOf(keyword) === -1) return;
+
+                        const div = document.createElement('div');
+                        div.className = 'route-list-item' + (item.index === selectedIdx ? ' selected' : '');
+                        div.textContent = name;
+                        div.addEventListener('click', function() {
+                            selectRoute(item);
+                        });
+                        routeListEl.appendChild(div);
+                    });
+                }
+
+                function selectRoute(item) {
+                    selectedIdx = item.index;
+                    const props = item.feature.properties;
+                    const name = props.FAC_NAME || '노선';
+
+                    routeSearchEl.value = name;
+                    routeListEl.classList.remove('open');
+
+                    // 제원 표시
+                    let html = '<div class="route-info-title">' + name + '</div>';
+                    html += '<div class="route-info-row"><span class="route-info-label">연장</span><span class="route-info-value">' + formatLength(item.length) + '</span></div>';
+                    html += '<div class="route-info-row"><span class="route-info-label">폭(E-W)</span><span class="route-info-value">' + formatLength(item.bbox.width) + '</span></div>';
+                    html += '<div class="route-info-row"><span class="route-info-label">높이(N-S)</span><span class="route-info-value">' + formatLength(item.bbox.height) + '</span></div>';
+                    html += '<div class="route-info-row"><span class="route-info-label">꼭짓점수</span><span class="route-info-value">' + item.coords.length + '개</span></div>';
+                    if (props.FAC_CODE) html += '<div class="route-info-row"><span class="route-info-label">시설코드</span><span class="route-info-value">' + props.FAC_CODE + '</span></div>';
+                    if (props.DISTRIC_01) html += '<div class="route-info-row"><span class="route-info-label">위치</span><span class="route-info-value">' + props.DISTRIC_01 + '</span></div>';
+
+                    routeInfoEl.innerHTML = html;
+                    routeInfoEl.classList.add('visible');
+
+                    // 지도 이동
+                    const latLngs = item.coords.map(c => [c[1], c[0]]);
+                    map.fitBounds(L.latLngBounds(latLngs), { padding: [50, 50] });
+
+                    // 해당 노선 하이라이트
+                    routeLayer.eachLayer(function(layer) {
+                        if (layer.feature === item.feature) {
+                            layer.setStyle({ color: '#FF5722', weight: 5, opacity: 1 });
+                            layer.bringToFront();
+                        } else {
+                            layer.setStyle({ color: '#2196F3', weight: 3, opacity: 0.9 });
+                        }
+                    });
+                }
+
+                // 검색 이벤트
+                routeSearchEl.addEventListener('focus', function() {
+                    renderRouteList(this.value);
+                    routeListEl.classList.add('open');
+                });
+                routeSearchEl.addEventListener('input', function() {
+                    renderRouteList(this.value);
+                    routeListEl.classList.add('open');
+                });
+                document.addEventListener('click', function(e) {
+                    if (!e.target.closest('.route-dropdown')) {
+                        routeListEl.classList.remove('open');
+                    }
+                });
+
+                // 노선 영역으로 줌
+                map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
+                document.getElementById('loading').classList.add('hidden');
+            })
+            .catch(err => {
+                document.getElementById('loading').textContent = '노선 데이터를 불러오지 못했습니다: ' + err.message;
+                console.error(err);
+            });
     </script>
 </body>
 </html>
